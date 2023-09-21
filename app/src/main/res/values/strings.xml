@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">BMECapstone</string>
+
+    <string name="device_name_label">기기명\u0020:\u0020\u0020</string>
+    <string name="status_label">상태\u0020:\u0020\u0020</string>
+    <string name="battery_label">배터리\u0020:\u0020\u0020</string>
+    <string name="sensor_status_label">센서 상태\u0020:\u0020\u0020</string>
+    <string name="transfer_rate_label">전송 속도\u0020:\u0020\u0020</string>
+    <string name="device_state_btn">기기 검색</string>
+</resources>

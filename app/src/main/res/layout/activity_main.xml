@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context=".MainActivity">
+
+    <FrameLayout
+        android:id="@+id/frame"
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="1">
+
+        <!-- 프래그먼트 -->
+
+    </FrameLayout>
+
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginStart="5dp"
+        android:layout_marginEnd="5dp"
+        android:layout_centerVertical="true"
+        android:background="#D3D3D3"/>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <Button
+            android:id="@+id/btn_bluetooth"
+            android:layout_width="0dp"
+            android:layout_weight=".30"
+            android:layout_marginHorizontal="1dp"
+            android:layout_height="wrap_content"
+            android:text="블루투스" />
+
+        <Button
+            android:id="@+id/btn_CAM"
+            android:layout_width="0dp"
+            android:layout_weight=".30"
+            android:layout_marginHorizontal="1dp"
+            android:layout_height="wrap_content"
+            android:text="측정"/>
+
+        <Button
+            android:id="@+id/btn_info"
+            android:layout_width="0dp"
+            android:layout_weight=".30"
+            android:layout_marginHorizontal="1dp"
+            android:layout_height="wrap_content"
+            android:text="내 정보"/>
+
+    </LinearLayout>
+</LinearLayout>
