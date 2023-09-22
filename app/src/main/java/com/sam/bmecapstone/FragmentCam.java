@@ -25,9 +25,7 @@ public class FragmentCam extends Fragment {
     }
 
     @Override
-    public void onStart(){
-        super.onStart();
-
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         txtTerminal = getView().findViewById(R.id.txt_terminal);
         if (txtTerminal != null){
             txtTerminal.setMovementMethod(new ScrollingMovementMethod());
@@ -38,16 +36,21 @@ public class FragmentCam extends Fragment {
                 if (true){ // Bluetooth 연결 여부
                     if (true){ // 카메라 사용가능 여부
                         // 다 완료시 통신 테스트 진행
-                        
+
                     }
-                    
+
                 }
-                
+
             }
             // 측정 가능 조건 : 블루투스 6개 연결, 캡 사용 가능, 서버와 통신을 통해..
             // 사용자의 정보를 기입.. (mainActivity 이전에 로그인 창을 통해 진행)
             // 사용자가 허가를 받았는지 확인
 
         }
+    }
+    @Override
+    public void onStart(){
+        super.onStart();
+
     }
 }

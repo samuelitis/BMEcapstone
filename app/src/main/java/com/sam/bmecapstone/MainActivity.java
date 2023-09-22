@@ -2,14 +2,11 @@ package com.sam.bmecapstone;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
-import androidx.lifecycle.LiveData;
-import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.ViewModel;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -21,30 +18,35 @@ import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.ParcelUuid;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.Manifest;
 
 
-import org.jetbrains.annotations.NotNull;
+import org.w3c.dom.Text;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
 
     Button btnBluetooth, btnCam, btnInfo;
+    List<BluetoothDevice> discoveredDevices;
+    private FragmentBluetooth fragmentBluetooth;
+    private FragmentCam fragmentCam;
+    private FragmentInfo fragmentInfo;
     private ActivityResultLauncher<Intent> enableBluetoothLauncher;
 
     private BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -59,20 +61,6 @@ public class MainActivity extends AppCompatActivity {
     private static final int PERMISSION_REQUEST_CODE = 1002;
     private static final int REQUEST_ENABLE_BT = 992;
 
-
-    private final BroadcastReceiver receiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED) {
-                    String deviceName = device.getName();
-                    String deviceAddress = device.getAddress();
-                    Log.d("BluetoothDiscovery", "Found device: " + deviceName + " - " + deviceAddress);
-                }
-            }
-        }
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -96,17 +84,6 @@ public class MainActivity extends AppCompatActivity {
             // 하나 이상의 권한이 거부된 경우, 권한 요청
             ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQUEST_CODE);
         }
-
-
-        // 프래그먼트 설정 및 초기화
-        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-        FragmentBluetooth fragmentBluetooth = new FragmentBluetooth();
-        FragmentCam fragmentCam = new FragmentCam();
-        FragmentInfo fragmentInfo = new FragmentInfo();
-
-
-        transaction.replace(R.id.frame, fragmentBluetooth);
-        transaction.commit();
 
 
         enableBluetoothLauncher = registerForActivityResult(
@@ -137,53 +114,42 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
+
+
+        // 프래그먼트 초기화
+        fragmentBluetooth = new FragmentBluetooth();
+        fragmentCam = new FragmentCam();
+        fragmentInfo = new FragmentInfo();
+
+        // 초기 프래그먼트 설정
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.frame, fragmentBluetooth)
+                .commit();
+
         btnBluetooth = findViewById(R.id.btn_bluetooth);
         btnCam = findViewById(R.id.btn_CAM);
         btnInfo = findViewById(R.id.btn_info);
 
-
-
-
-        btnBluetooth.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-
-                // 초기에 추가된 적이 없으면 추가
-                if (!fragmentBluetooth.isAdded()) {
-                    transaction.add(R.id.frame, fragmentBluetooth);
-                }
-                transaction.hide(fragmentCam).hide(fragmentInfo).show(fragmentBluetooth).commit();
-            }
-        });
-
-        btnCam.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-
-                if (!fragmentCam.isAdded()) {
-                    transaction.add(R.id.frame, fragmentCam);
-                }
-
-                transaction.hide(fragmentBluetooth).hide(fragmentInfo).show(fragmentCam).commit();
-            }
-        });
-
-        btnInfo.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-
-                if (!fragmentInfo.isAdded()) {
-                    transaction.add(R.id.frame, fragmentInfo);
-                }
-
-                transaction.hide(fragmentBluetooth).hide(fragmentCam).show(fragmentInfo).commit();
-            }
-        });
+        btnBluetooth.setOnClickListener(view -> switchFragment(fragmentBluetooth));
+        btnCam.setOnClickListener(view -> switchFragment(fragmentCam));
+        btnInfo.setOnClickListener(view -> switchFragment(fragmentInfo));
     }
+    private void switchFragment(Fragment fragment) {
+        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
 
+        if (fragment.isAdded()) {
+            transaction.show(fragment);
+        } else {
+            transaction.add(R.id.frame, fragment);
+        }
+
+        // 다른 프래그먼트들은 숨김
+        if (fragment != fragmentBluetooth) transaction.hide(fragmentBluetooth);
+        if (fragment != fragmentCam) transaction.hide(fragmentCam);
+        if (fragment != fragmentInfo) transaction.hide(fragmentInfo);
+
+        transaction.commit();
+    }
     private boolean checkPermissions(String[] permissions) {
         for (String permission : permissions) {
             if (ActivityCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
@@ -192,8 +158,6 @@ public class MainActivity extends AppCompatActivity {
         }
         return true;
     }
-
-
 
 
     // 권한이 이미 승인되었는지 확인
@@ -219,47 +183,74 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 블루투스 검색
-    @SuppressLint("MissingPermission")
-    public void discoverDevices() {
+    // 블루투스 LE 검색
+    public void discoverDevices(Activity activity) {
+        try {
+            discoveredDevices = new ArrayList<>();
+            final BluetoothLeScanner bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
 
-        // 디스커버리 시작
-        final BluetoothLeScanner bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
+            if (bluetoothLeScanner != null) {
+                ScanCallback scanCallback = new ScanCallback() {
+                    @Override
+                    public void onScanResult(int callbackType, ScanResult result) {
+                        BluetoothDevice device = result.getDevice();
+                        if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                            return;
+                        }
+                        String deviceName = device.getName();
+                        String deviceAddress = device.getAddress();
+                        if (deviceName != null && !discoveredDevices.contains(device)) {
+                            discoveredDevices.add(device);
 
-        if (bluetoothLeScanner != null) {
-            ScanCallback scanCallback = new ScanCallback() {
-                @Override
-                public void onScanResult(int callbackType, ScanResult result) {
+                            // 여기서 바로 장치 처리
+                            if (deviceName.startsWith("BCAP ")) {
+                                String numberPartStr = deviceName.replace("BCAP ", "");
+                                try {
+                                    int numberPart = Integer.parseInt(numberPartStr);
+                                    int[] statusIds = {
+                                            R.id.status_value_1, R.id.status_value_2, R.id.status_value_3,
+                                            R.id.status_value_4, R.id.status_value_5, R.id.status_value_6
+                                    };
 
-                    BluetoothDevice device = result.getDevice();
-                    String deviceName = device.getName();          // 기기 이름
-                    String deviceAddress = device.getAddress();    // 기기의 MAC 주소
+                                    int[] btnIds = {
+                                            R.id.btn_bluetooth_connect_1, R.id.btn_bluetooth_connect_2, R.id.btn_bluetooth_connect_3,
+                                            R.id.btn_bluetooth_connect_4, R.id.btn_bluetooth_connect_5, R.id.btn_bluetooth_connect_6
+                                    };
 
-                    // 추가적으로 ScanResult에서 다른 정보도 얻을 수 있습니다.
-                    int rssi = result.getRssi();                   // 신호 강도
-                    ScanRecord scanRecord = result.getScanRecord();
-                    byte[] rawBytes = scanRecord.getBytes();       // 원시 광고 데이터
-                    // 디스커버리 이후 저장하거나 활용하는 코드
-                }
+                                    if (numberPart >= 1 && numberPart <= 6) {
+                                        TextView transText = findViewById(statusIds[numberPart - 1]);
+                                        Button transBtn = findViewById(btnIds[numberPart - 1]);
 
-                @Override
-                public void onScanFailed(int errorCode) {
-                    super.onScanFailed(errorCode);
-                    // 스캔 실패 시 처리
-                }
-            };
+                                        transBtn.setVisibility(View.VISIBLE);
+                                        transBtn.setText("연결 시도");
+                                        transText.setText("연결 가능");
+                                    }
+                                } catch (NumberFormatException e) {
+                                    Log.e("Error", "Failed to parse the number from device name", e);
+                                }
+                            }
+                        }
 
-            bluetoothLeScanner.startScan(scanCallback);
+                        if (deviceName != null) {
+                            Log.d("BLEDiscovery", "Found device: " + deviceName + " - " + deviceAddress);
+                        }
+                    }
 
+                    @Override
+                    public void onScanFailed(int errorCode) {
+                        super.onScanFailed(errorCode);
+                    }
+                };
 
-            Handler handler = new Handler();
-            new Handler().postDelayed(() -> {
-                bluetoothLeScanner.stopScan(scanCallback);
-            }, 10000); // 10초 지연
+                bluetoothLeScanner.startScan(scanCallback);
+            }
+        } catch (Exception e) {
+            Log.e("Error", "An error occurred during device discovery", e);
         }
     }
 
-    // 페어링 시도
+
+    // LE에 페어링 시도
     @SuppressLint("MissingPermission")
     public void pairDevice(BluetoothDevice device) {
         if (device != null) {
@@ -267,7 +258,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 통신을 위한 소켓연결
+    // LE에 통신을 위한 소켓연결
     // RFCOMM Bluetooth socket 생성
     // 성공적으로 연결된 Bluetooth socket 반환
     @SuppressLint("MissingPermission")
@@ -280,35 +271,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(receiver); // 리시버 해제
     }
 
-    // 디바이스 목록
-    public class DeviceManager {
-        private static DeviceManager instance;
-        private final List<BluetoothDevice> discoveredDevices = new ArrayList<>();
 
-        private DeviceManager() {}
-
-        public static synchronized DeviceManager getInstance() {
-            if (instance == null) {
-                instance = new DeviceManager();
-            }
-            return instance;
-        }
-
-        public void addDevice(BluetoothDevice device) {
-            if (!discoveredDevices.contains(device)) {
-                discoveredDevices.add(device);
-            }
-        }
-
-        public List<BluetoothDevice> getDevices() {
-            return discoveredDevices;
-        }
-
-        public void clearDevices() {
-            discoveredDevices.clear();
-        }
-    }
 }
