@@ -18,9 +18,9 @@ Android의 전면카메라를 통한 pose estimation,
 프로필](http://mazassumnida.wtf/api/v2/generate_badge?boj=samuelitis)](https://solved.ac/samuelitis)  
 
 ## LINK
-### [대구가톨릭대학교](https://cu.ac.kr/)
-### [대구가톨릭대학교 의료공학과](https://bme.cu.ac.kr/)
-### [대구가톨릭대학교 캡스톤디자인](https://capstone.cu.ac.kr/pages/index.htm)
+##### [대구가톨릭대학교](https://cu.ac.kr/)
+##### [대구가톨릭대학교 의료공학과](https://bme.cu.ac.kr/)
+##### [대구가톨릭대학교 캡스톤디자인](https://capstone.cu.ac.kr/pages/index.htm)
 
 
 ## Reference
