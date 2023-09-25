@@ -125,6 +125,26 @@ public class FragmentBluetooth extends Fragment implements SwipeRefreshLayout.On
 
         swipeRefreshLayout = view.findViewById(R.id.swipeLayout);
         swipeRefreshLayout.setOnRefreshListener(this);
+        int[] btnIds = {
+                R.id.btn_bluetooth_connect_1, R.id.btn_bluetooth_connect_2, R.id.btn_bluetooth_connect_3,
+                R.id.btn_bluetooth_connect_4, R.id.btn_bluetooth_connect_5, R.id.btn_bluetooth_connect_6
+        };
+
+        for (int i = 0; i < btnIds.length; i++) {
+            final int index = i;
+            Button btn = view.findViewById(btnIds[i]);
+            btn.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (index < mainActivity.bluetoothDevices.size() && mainActivity.bluetoothDevices.get(index) != null) {
+                        mainActivity.connectToDevice(mainActivity.bluetoothDevices.get(index), mainActivity);
+                    } else {
+                        // 해당 인덱스의 BluetoothDevice가 없는 경우의 처리, 예를 들어 오류 메시지 표시
+                    }
+                }
+            });
+        }
+
 
     }
     @Override

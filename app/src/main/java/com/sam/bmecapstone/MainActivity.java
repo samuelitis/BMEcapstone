@@ -12,7 +12,13 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothSocket;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
@@ -50,14 +56,10 @@ public class MainActivity extends AppCompatActivity {
     private ActivityResultLauncher<Intent> enableBluetoothLauncher;
 
     private BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-    private BluetoothManager bluetoothManager; // 블루투스 매니저
-    private Set<BluetoothDevice> devices; // 블루투스 디바이스 데이터 셋
-    private BluetoothDevice bluetoothDevice_1; // 블루투스 디바이스
-    private BluetoothDevice bluetoothDevice_2; // 블루투스 디바이스
-    private BluetoothDevice bluetoothDevice_3; // 블루투스 디바이스
-    private BluetoothDevice bluetoothDevice_4; // 블루투스 디바이스
-    private BluetoothDevice bluetoothDevice_5; // 블루투스 디바이스
-    private BluetoothDevice bluetoothDevice_6; // 블루투스 디바이스
+    private BluetoothGatt mBluetoothGatt;
+    private BluetoothGattCallback gattCallback;
+    List<BluetoothDevice> bluetoothDevices = new ArrayList<>();
+
     private static final int PERMISSION_REQUEST_CODE = 1002;
     private static final int REQUEST_ENABLE_BT = 992;
 
@@ -114,8 +116,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
-
-
         // 프래그먼트 초기화
         fragmentBluetooth = new FragmentBluetooth();
         fragmentCam = new FragmentCam();
@@ -134,6 +134,7 @@ public class MainActivity extends AppCompatActivity {
         btnCam.setOnClickListener(view -> switchFragment(fragmentCam));
         btnInfo.setOnClickListener(view -> switchFragment(fragmentInfo));
     }
+
     private void switchFragment(Fragment fragment) {
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
 
@@ -150,6 +151,7 @@ public class MainActivity extends AppCompatActivity {
 
         transaction.commit();
     }
+
     private boolean checkPermissions(String[] permissions) {
         for (String permission : permissions) {
             if (ActivityCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
@@ -182,7 +184,21 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+    public boolean allDevicesConnected() {
+        // 모든 기기가 연결되었는지 확인하기 위해 bluetoothDevices의 크기가 6인지 확인
+        if (bluetoothDevices.size() != 6) {
+            return false;
+        }
 
+        // bluetoothDevices 리스트에서 null 값이 있는지 확인
+        for (BluetoothDevice device : bluetoothDevices) {
+            if (device == null) {
+                return false;  // 하나라도 연결되지 않은 기기가 있으면 false 반환
+            }
+        }
+
+        return true;  // 모든 조건이 만족되면 true 반환
+    }
     // 블루투스 LE 검색
     public void discoverDevices(Activity activity) {
         try {
@@ -202,11 +218,18 @@ public class MainActivity extends AppCompatActivity {
                         if (deviceName != null && !discoveredDevices.contains(device)) {
                             discoveredDevices.add(device);
 
-                            // 여기서 바로 장치 처리
                             if (deviceName.startsWith("BCAP ")) {
                                 String numberPartStr = deviceName.replace("BCAP ", "");
                                 try {
                                     int numberPart = Integer.parseInt(numberPartStr);
+
+                                    // 저장된 device list의 크기가 numberPart보다 작을 경우 리스트를 채워넣습니다.
+                                    while (bluetoothDevices.size() < numberPart) {
+                                        bluetoothDevices.add(null);
+                                    }
+
+                                    bluetoothDevices.set(numberPart - 1, device);
+
                                     int[] statusIds = {
                                             R.id.status_value_1, R.id.status_value_2, R.id.status_value_3,
                                             R.id.status_value_4, R.id.status_value_5, R.id.status_value_6
@@ -249,24 +272,68 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public void connectToDevice(final BluetoothDevice device, Activity activity) {
+        // BLE 디바이스 연결을 위한 콜백
+        gattCallback = new BluetoothGattCallback() {
+            @Override
+            public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    Log.i("BLEConnect", "Connected to GATT server.");
+                    // 연결 성공 후에는 서비스를 발견하도록 요청할 수 있습니다.
+                    if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                        return;
+                    }
+                    gatt.discoverServices();
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    Log.i("BLEConnect", "Disconnected from GATT server.");
+                    // 연결이 끊긴 기기의 위치에 null 설정
+                    for (int i = 0; i < bluetoothDevices.size(); i++) {
+                        if (bluetoothDevices.get(i).equals(gatt.getDevice())) {
+                            bluetoothDevices.set(i, null);
+                            break;
+                        }
+                    }
+                    gatt.close();  // BluetoothGatt 리소스를 해제
+                }
+            }
+            // 연결 후 서비스 발견시
+            @Override
+            public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    // 원하는 서비스 및 특성을 탐색
+                    BluetoothGattService targetService = gatt.getService(UUID.fromString("0000179B-0000-1000-8000-00805F9B34FB")); // arduino : BLEService "179B";
+                    if (targetService != null) {
+                        BluetoothGattCharacteristic targetCharacteristic = targetService.getCharacteristic(UUID.fromString("00002A58-0000-1000-8000-00805F9B34FB")); // arduino : BLECharacteristic "2A58"
+                        if (targetCharacteristic != null) {
+                            // 특성에 대한 알림 활성화
+                            if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                                return;
+                            }
+                            gatt.setCharacteristicNotification(targetCharacteristic, true);
+                            BluetoothGattDescriptor descriptor = targetCharacteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
+                            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                            gatt.writeDescriptor(descriptor);
+                        }
+                    }
+                } else {
+                    Log.w("BLEConnect", "onServicesDiscovered received: " + status);
+                }
+            }
 
-    // LE에 페어링 시도
-    @SuppressLint("MissingPermission")
-    public void pairDevice(BluetoothDevice device) {
-        if (device != null) {
-            device.createBond();
-        }
+            // 특성 값 변경 시
+            @Override
+            public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+                byte[] data = characteristic.getValue();
+                // 받은 데이터를 여기서 처리...
+            }
+
+            // 다른 콜백 메서드들도 필요에 따라 오버라이드 할 수 있습니다.
+        };
+
+        // 연결 시도
+        mBluetoothGatt = device.connectGatt(activity, false, gattCallback);
     }
 
-    // LE에 통신을 위한 소켓연결
-    // RFCOMM Bluetooth socket 생성
-    // 성공적으로 연결된 Bluetooth socket 반환
-    @SuppressLint("MissingPermission")
-    public BluetoothSocket connectToDevice(BluetoothDevice device, UUID uuid) throws IOException {
-        BluetoothSocket socket = device.createRfcommSocketToServiceRecord(uuid);
-        socket.connect();
-        return socket;
-    }
 
     @Override
     public void onDestroy() {
