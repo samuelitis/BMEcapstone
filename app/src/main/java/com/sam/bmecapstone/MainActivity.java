@@ -17,18 +17,13 @@ import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
-import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
-import android.bluetooth.BluetoothSocket;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
-import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.ParcelUuid;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -37,13 +32,9 @@ import android.widget.Toast;
 import android.Manifest;
 
 
-import org.w3c.dom.Text;
-
-import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
@@ -277,23 +268,29 @@ public class MainActivity extends AppCompatActivity {
         gattCallback = new BluetoothGattCallback() {
             @Override
             public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-                if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    Log.i("BLEConnect", "Connected to GATT server.");
-                    // 연결 성공 후에는 서비스를 발견하도록 요청할 수 있습니다.
-                    if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                        return;
-                    }
-                    gatt.discoverServices();
-                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    Log.i("BLEConnect", "Disconnected from GATT server.");
-                    // 연결이 끊긴 기기의 위치에 null 설정
-                    for (int i = 0; i < bluetoothDevices.size(); i++) {
-                        if (bluetoothDevices.get(i).equals(gatt.getDevice())) {
-                            bluetoothDevices.set(i, null);
-                            break;
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    if (newState == BluetoothProfile.STATE_CONNECTED) {
+                        Log.i("BLEConnect", "Connected to GATT server.");
+                        // 연결 성공 후에는 서비스를 발견하도록 요청할 수 있습니다.
+                        if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                            return;
                         }
+                        gatt.discoverServices();
+                    } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                        Log.i("BLEConnect", "Disconnected from GATT server.");
+                        // 연결이 끊긴 기기의 위치에 null 설정
+                        for (int i = 0; i < bluetoothDevices.size(); i++) {
+                            if (bluetoothDevices.get(i).equals(gatt.getDevice())) {
+                                bluetoothDevices.set(i, null);
+                                break;
+                            }
+                        }
+                        gatt.close();  // BluetoothGatt 리소스를 해제
                     }
-                    gatt.close();  // BluetoothGatt 리소스를 해제
+                } else {
+                    // 연결 실패
+                    Log.e("BLEConnect", "Connection failed with status: " + status);
+                    // 추가로 필요한 오류 처리를 여기에 추가하십시오.
                 }
             }
             // 연결 후 서비스 발견시
@@ -324,7 +321,24 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
                 byte[] data = characteristic.getValue();
-                // 받은 데이터를 여기서 처리...
+                char dataType = (char) data[0]; // 'A' 또는 'G'
+                SensorDataStore.SensorData sensorData;
+                float x = bytesToFloat(data, 1);
+                float y = bytesToFloat(data, 5);
+                float z = bytesToFloat(data, 9);
+
+                int dataTypeValue = (dataType == 'A') ? 1 : 0;
+                sensorData = new SensorDataStore.SensorData(dataTypeValue, x, y, z);
+
+                SensorDataStore.getInstance().addData(sensorData);
+            }
+
+            public float bytesToFloat(byte[] bytes, int start) {
+                int asInt = (bytes[start] & 0xFF)
+                        | ((bytes[start + 1] & 0xFF) << 8)
+                        | ((bytes[start + 2] & 0xFF) << 16)
+                        | ((bytes[start + 3] & 0xFF) << 24);
+                return Float.intBitsToFloat(asInt);
             }
 
             // 다른 콜백 메서드들도 필요에 따라 오버라이드 할 수 있습니다.
@@ -333,8 +347,60 @@ public class MainActivity extends AppCompatActivity {
         // 연결 시도
         mBluetoothGatt = device.connectGatt(activity, false, gattCallback);
     }
+    public static class SensorDataStore {
+
+        private static SensorDataStore instance = null;
+        private final int MAX_SIZE = 1000; // 예: 최대 1000개의 데이터를 보관
+        private ArrayDeque<SensorData> queue;
+
+        private SensorDataStore() {
+            queue = new ArrayDeque<>();
+        }
+
+        public static synchronized SensorDataStore getInstance() {
+            if (instance == null) {
+                instance = new SensorDataStore();
+            }
+            return instance;
+        }
+
+        public synchronized void addData(SensorData data) {
+            if(queue.size() >= MAX_SIZE) {
+                queue.poll(); // 최대 크기를 초과하면 가장 오래된 데이터 제거
+            }
+            queue.add(data);
+        }
+
+        public synchronized SensorData pollData() {
+            return queue.poll();
+        }
+
+        public synchronized List<SensorData> getAllData() {
+            List<SensorData> dataList = new ArrayList<>(queue);
+            queue.clear();
+            return dataList;
+        }
+
+        public synchronized int dataSize() {
+            return queue.size();
+        }
 
 
+        public static class SensorData {
+            private final boolean isAcceleration;
+            public float ax, ay, az, gx, gy, gz;
+
+            public SensorData(int dataType, float ax, float ay, float az) {
+                this.isAcceleration = (dataType == 1);
+                this.ax = ax;
+                this.ay = ay;
+                this.az = az;
+                this.gx = gx;
+                this.gy = gy;
+                this.gz = gz;
+            }
+        }
+    }
     @Override
     public void onDestroy() {
         super.onDestroy();
