@@ -27,13 +27,18 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
+import java.net.CookieManager;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 
 public class FragmentCam extends Fragment {
     private static final int REQUEST_IMAGE_CAPTURE = 672;
@@ -149,137 +154,140 @@ public class FragmentCam extends Fragment {
     private boolean checkCameraPermission() {
         return ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
     }
+    static class CompareSizesByArea implements Comparator<Size> {
+        @Override
+        public int compare(Size lhs, Size rhs) {
+            return Long.signum((long) lhs.getWidth() * lhs.getHeight() -
+                    (long) rhs.getWidth() * rhs.getHeight());
+        }
+    }
     private void openCamera() {
         CameraManager manager = (CameraManager) getActivity().getSystemService(Context.CAMERA_SERVICE);
+
         try {
             String[] cameraIdList = manager.getCameraIdList();
             String cameraId = null;
+            CameraCharacteristics characteristics = null;
+
             for (String id : cameraIdList) {
-                CameraCharacteristics characteristics = manager.getCameraCharacteristics(id);
-                // 원하는 카메라 방향 선택 (LENS_FACING_FRONT 또는 LENS_FACING_BACK)
+                characteristics = manager.getCameraCharacteristics(id);
                 Integer lensFacing = characteristics.get(CameraCharacteristics.LENS_FACING);
                 if (lensFacing != null && lensFacing == CameraCharacteristics.LENS_FACING_FRONT) {
                     cameraId = id;
                     break;
                 }
             }
+
             if (cameraId == null) {
                 Log.e("Camera", "No front-facing camera found.");
                 return;
             }
-            CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
             StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             if (map != null) {
-                // 원하는 해상도 선택
                 Size[] sizes = map.getOutputSizes(SurfaceTexture.class);
-                int selectedWidth = 640; // 선택한 너비
-                int selectedHeight = 480; // 선택한 높이
-                Size selectedSize = null;
-                for (Size size : sizes) {
-                    if (size.getWidth() == selectedWidth && size.getHeight() == selectedHeight) {
-                        selectedSize = size;
-                        break;
-                    }
-                }
-                if (selectedSize != null) {
-                    // 선택한 해상도를 사용하도록 설정
-                    textureView.getSurfaceTexture().setDefaultBufferSize(selectedSize.getWidth(), selectedSize.getHeight());
+                Size largestSize = Collections.max(Arrays.asList(sizes), new CompareSizesByArea());
+                textureView.getSurfaceTexture().setDefaultBufferSize(largestSize.getWidth(), largestSize.getHeight());
+                // 카메라를 여는 부분 추가
+                if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    manager.openCamera(cameraId, new CameraDevice.StateCallback() {
+                        @Override
+                        public void onOpened(@NonNull CameraDevice camera) {
+                            cameraDevice = camera;
+
+                            startCaptureSession(largestSize.getWidth(), largestSize.getHeight()); // 예제에서 사용했던 세션 시작 메서드 호출
+                        }
+
+                        @Override
+                        public void onDisconnected(@NonNull CameraDevice camera) {
+                            camera.close();
+                            cameraDevice = null;
+                        }
+
+                        @Override
+                        public void onError(@NonNull CameraDevice camera, int error) {
+                            camera.close();
+                            cameraDevice = null;
+                            Log.e("Camera", "Error opening camera: " + error);
+                        }
+                    }, backgroundHandler);
                 } else {
-                    Log.e("Camera", "Selected resolution not supported.");
+                    // 권한 요청 또는 관련 메시지 표시
                 }
+            } else {
+                Log.e("Camera", "SCALER_STREAM_CONFIGURATION_MAP is null.");
             }
-            manager.openCamera(cameraId, new CameraDevice.StateCallback() {
-                @Override
-                public void onOpened(@NonNull CameraDevice camera) {
-                    cameraDevice = camera;
-                    startCaptureSession();
-                }
 
-                @Override
-                public void onDisconnected(@NonNull CameraDevice camera) {
-                    // 카메라와의 연결이 끊어졌을 때 수행할 작업을 여기에 추가합니다.
-                    camera.close();
-                }
 
-                @Override
-                public void onError(@NonNull CameraDevice camera, int error) {
-                    // 카메라 오류가 발생했을 때 수행할 작업을 여기에 추가합니다.
-                    camera.close();
-                }
-            }, backgroundHandler);
-        } catch (CameraAccessException | SecurityException e) {
-            e.printStackTrace();
-            Log.e("BMECamera", "Error opening camera: " + e.getMessage()); // 오류 로그 추가
-        }
-    }
-
-    private void startCaptureSession() {
-        try {
-            CaptureRequest.Builder requestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            SurfaceTexture texture = new SurfaceTexture(0);
-            texture.setDefaultBufferSize(640, 480); // 예시로 설정한 해상도입니다.
-            Surface surface = new Surface(textureView.getSurfaceTexture());
-            requestBuilder.addTarget(surface);
-
-            cameraDevice.createCaptureSession(Collections.singletonList(surface), new CameraCaptureSession.StateCallback() {
-                @Override
-                public void onConfigured(@NonNull CameraCaptureSession session) {
-                    captureSession = session;
-                    startRepeatingRequest();
-                }
-
-                @Override
-                public void onConfigureFailed(@NonNull CameraCaptureSession session) {
-                    // 여기에 세션 구성이 실패했을 때의 처리를 추가합니다.
-                    Log.e("CameraCaptureSession", "Configuration failed");
-                }
-
-                @Override
-                public void onReady(@NonNull CameraCaptureSession session) {
-                    // 세션이 준비되었을 때 여기에서 처리할 작업을 수행할 수 있습니다.
-                }
-
-                @Override
-                public void onActive(@NonNull CameraCaptureSession session) {
-                    // 세션이 활성화되었을 때 여기에서 처리할 작업을 수행할 수 있습니다.
-                }
-
-                @Override
-                public void onClosed(@NonNull CameraCaptureSession session) {
-                    // 세션이 닫혔을 때 여기에서 처리할 작업을 수행할 수 있습니다.
-                }
-                // 다른 콜백 메서드들도 구현함..
-            }, backgroundHandler);
         } catch (CameraAccessException e) {
             e.printStackTrace();
-            Log.e("bmeCameraCaptureSession", "Error starting capture session: " + e.getMessage()); // 오류 로그 추가
-
+            Log.e("Camera", "Error accessing camera: " + e.getMessage());
         }
     }
 
-    private Rect calculateCropRect(int fullWidth, int fullHeight, int desiredWidth, int desiredHeight) {
-        int xCenter = fullWidth / 2;
-        int yCenter = fullHeight / 2;
+    private void startCaptureSession(int maxWidth, int maxHeight) {
+        try {
+            CaptureRequest.Builder requestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
 
-        int left = xCenter - (desiredWidth / 2);
-        int top = yCenter - (desiredHeight / 2);
-        int right = xCenter + (desiredWidth / 2);
-        int bottom = yCenter + (desiredHeight / 2);
+            // Directly get the SurfaceTexture from the TextureView
+            SurfaceTexture texture = textureView.getSurfaceTexture();
+
+            // Set the buffer size to the desired maximum resolution
+            if (texture != null) {
+                texture.setDefaultBufferSize(maxWidth, maxHeight);
+                Surface surface = new Surface(texture);
+                requestBuilder.addTarget(surface);
+
+                cameraDevice.createCaptureSession(Collections.singletonList(surface), new CameraCaptureSession.StateCallback() {
+                    @Override
+                    public void onConfigured(@NonNull CameraCaptureSession session) {
+                        captureSession = session;
+                        startRepeatingRequest(maxWidth, maxHeight);
+                    }
+
+                    @Override
+                    public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+                        Log.e("CameraCaptureSession", "Configuration failed");
+                    }
+
+                    // ... 나머지 콜백 메서드들...
+
+                }, backgroundHandler);
+            } else {
+                Log.e("CameraCaptureSession", "SurfaceTexture is null");
+            }
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+            Log.e("CameraCaptureSession", "Error starting capture session: " + e.getMessage());
+        }
+    }
+
+
+    private Rect calculateCropRectForSquare(int maxWidth, int maxHeight) {
+        int desiredSize = Math.min(maxWidth, maxHeight);
+
+        int xCenter = maxWidth / 2;
+        int yCenter = maxHeight / 2;
+
+        int left = xCenter - (desiredSize / 2);
+        int top = yCenter - (desiredSize / 2);
+        int right = xCenter + (desiredSize / 2);
+        int bottom = yCenter + (desiredSize / 2);
 
         return new Rect(left, top, right, bottom);
     }
 
-    private void startRepeatingRequest() {
+    private void startRepeatingRequest(int maxWidth, int maxHeight) {
         try {
             CaptureRequest.Builder requestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             SurfaceTexture texture = textureView.getSurfaceTexture();
             if (texture != null) {
-                texture.setDefaultBufferSize(640, 480);
+                texture.setDefaultBufferSize(maxWidth, maxHeight);
                 Surface surface = new Surface(texture);
                 requestBuilder.addTarget(surface);
 
-                // Crop 중앙 480x480 설정
-                Rect cropRect = calculateCropRect(640, 480, 480, 480);
+                // 중앙에서부터 1:1로 crop 설정
+                Rect cropRect = calculateCropRectForSquare(maxWidth, maxHeight);
+                Toast.makeText(getActivity(),cropRect+"",Toast.LENGTH_LONG).show();
                 requestBuilder.set(CaptureRequest.SCALER_CROP_REGION, cropRect);
 
                 CaptureRequest request = requestBuilder.build();
@@ -289,6 +297,7 @@ public class FragmentCam extends Fragment {
             }
         } catch (CameraAccessException e) {
             e.printStackTrace();
+            Log.e("Camera", "Error starting capture session: " + e.getMessage());
         }
     }
 
