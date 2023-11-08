@@ -122,29 +122,74 @@ public class FragmentBluetooth extends Fragment implements SwipeRefreshLayout.On
             btnBluetoothConnect6.setVisibility(View.INVISIBLE);
             isInitialized = true;
         }
-
+        Button btn1 = view.findViewById(R.id.btn_bluetooth_connect_1);
+        Button btn2 = view.findViewById(R.id.btn_bluetooth_connect_2);
+        Button btn3 = view.findViewById(R.id.btn_bluetooth_connect_3);
+        Button btn4 = view.findViewById(R.id.btn_bluetooth_connect_4);
+        Button btn5 = view.findViewById(R.id.btn_bluetooth_connect_5);
+        Button btn6 = view.findViewById(R.id.btn_bluetooth_connect_6);
+        btn1.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mainActivity.bluetoothDevices.get(0) != null) {
+                    mainActivity.connectToDevice(mainActivity.bluetoothDevices.get(0), mainActivity);
+                } else {
+                    // 해당 인덱스의 BluetoothDevice가 없는 경우의 처리, 예를 들어 오류 메시지 표시
+                }
+            }
+        });
+        btn2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mainActivity.bluetoothDevices.get(1) != null) {
+                    mainActivity.connectToDevice(mainActivity.bluetoothDevices.get(1), mainActivity);
+                } else {
+                    // 해당 인덱스의 BluetoothDevice가 없는 경우의 처리, 예를 들어 오류 메시지 표시
+                }
+            }
+        });
+        btn3.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mainActivity.bluetoothDevices.get(2) != null) {
+                    mainActivity.connectToDevice(mainActivity.bluetoothDevices.get(2), mainActivity);
+                } else {
+                    // 해당 인덱스의 BluetoothDevice가 없는 경우의 처리, 예를 들어 오류 메시지 표시
+                }
+            }
+        });
+        btn4.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mainActivity.bluetoothDevices.get(3) != null) {
+                    mainActivity.connectToDevice(mainActivity.bluetoothDevices.get(3), mainActivity);
+                } else {
+                    // 해당 인덱스의 BluetoothDevice가 없는 경우의 처리, 예를 들어 오류 메시지 표시
+                }
+            }
+        });
+        btn5.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mainActivity.bluetoothDevices.get(4) != null) {
+                    mainActivity.connectToDevice(mainActivity.bluetoothDevices.get(4), mainActivity);
+                } else {
+                    // 해당 인덱스의 BluetoothDevice가 없는 경우의 처리, 예를 들어 오류 메시지 표시
+                }
+            }
+        });
+        btn6.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mainActivity.bluetoothDevices.get(5) != null) {
+                    mainActivity.connectToDevice(mainActivity.bluetoothDevices.get(5), mainActivity);
+                } else {
+                    // 해당 인덱스의 BluetoothDevice가 없는 경우의 처리, 예를 들어 오류 메시지 표시
+                }
+            }
+        });
         swipeRefreshLayout = view.findViewById(R.id.swipeLayout);
         swipeRefreshLayout.setOnRefreshListener(this);
-        int[] btnIds = {
-                R.id.btn_bluetooth_connect_1, R.id.btn_bluetooth_connect_2, R.id.btn_bluetooth_connect_3,
-                R.id.btn_bluetooth_connect_4, R.id.btn_bluetooth_connect_5, R.id.btn_bluetooth_connect_6
-        };
-
-        for (int i = 0; i < btnIds.length; i++) {
-            final int index = i;
-            Button btn = view.findViewById(btnIds[i]);
-            btn.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (index < mainActivity.bluetoothDevices.size() && mainActivity.bluetoothDevices.get(index) != null) {
-                        mainActivity.connectToDevice(mainActivity.bluetoothDevices.get(index), mainActivity);
-                    } else {
-                        // 해당 인덱스의 BluetoothDevice가 없는 경우의 처리, 예를 들어 오류 메시지 표시
-                    }
-                }
-            });
-        }
-
 
     }
     @Override
@@ -179,5 +224,23 @@ public class FragmentBluetooth extends Fragment implements SwipeRefreshLayout.On
     // 블루투스 상태 갱신 함수
 
     // 중간에 끊키면!
+    public void updateDeviceConnectionStatus(int deviceNumber, boolean isConnected) {
+        View view = getView(); // 현재 Fragment의 뷰를 가져옵니다.
+        if (view != null && deviceNumber >= 1 && deviceNumber <= 6) {
+            int statusId = getResources().getIdentifier("status_value_" + deviceNumber, "id", getActivity().getPackageName());
+            int btnId = getResources().getIdentifier("btn_bluetooth_connect_" + deviceNumber, "id", getActivity().getPackageName());
 
+            TextView transText = view.findViewById(statusId);
+            Button transBtn = view.findViewById(btnId);
+
+            if (isConnected) {
+                transBtn.setVisibility(View.INVISIBLE); // 버튼을 숨깁니다.
+                transText.setText("연결됨"); // 상태 텍스트를 "연결됨"으로 설정합니다.
+            } else {
+                transBtn.setVisibility(View.VISIBLE); // 버튼을 다시 표시합니다.
+                transBtn.setText("연결 시도"); // 버튼 텍스트를 "연결 시도"로 설정합니다.
+                transText.setText("연결 가능"); // 상태 텍스트를 "연결 가능"으로 설정합니다.
+            }
+        }
+    }
 }

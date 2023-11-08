@@ -306,11 +306,36 @@ public class MainActivity extends AppCompatActivity {
                             if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                                 return;
                             }
+                            String deviceName = gatt.getDevice().getName();
+                            String deviceAddress = gatt.getDevice().getAddress(); // 또는 MAC 주소를 사용
+                            Log.i("BLEConnect", "Connected to Device: " + deviceName + " (" + deviceAddress + ")");
+
                             gatt.setCharacteristicNotification(targetCharacteristic, true);
                             BluetoothGattDescriptor descriptor = targetCharacteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
                             descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
                             gatt.writeDescriptor(descriptor);
+
+                            // 장치 이름에서 숫자 추출하는 로직
+                            String[] nameParts = deviceName.split(" ");
+                            int numberPart = -1;
+                            if (nameParts.length == 2) {
+                                try {
+                                    numberPart = Integer.parseInt(nameParts[1]); // 디바이스 이름에서 숫자 부분을 추출
+                                } catch (NumberFormatException e) {
+                                    Log.e("BluetoothError", "Device name does not contain a valid number: " + deviceName);
+                                }
+                            }
+
+                            if (numberPart >= 1 && numberPart <= 6) {
+                                // Fragment에 정의된 메소드를 통해 UI 업데이트
+                                fragmentBluetooth.updateDeviceConnectionStatus(numberPart, true);
+                            }
+                        } else {
+                            Log.w("BLEConnect", "Target characteristic not found");
                         }
+                    } else {
+                        // 서비스를 찾지 못한 경우 로깅
+                        Log.w("BLEConnect", "Target service not found");
                     }
                 } else {
                     Log.w("BLEConnect", "onServicesDiscovered received: " + status);
@@ -331,6 +356,9 @@ public class MainActivity extends AppCompatActivity {
                 sensorData = new SensorDataStore.SensorData(dataTypeValue, x, y, z);
 
                 SensorDataStore.getInstance().addData(sensorData);
+                // 이제 cam activity에서 데이터 접근해서 확인하는 부분 만들면될듯
+                // 서버로 넘겨주는 거까지 테스트 해볼것!
+                // 이후 카메라 까지 묶어서 json으로 넘겨주기
             }
 
             public float bytesToFloat(byte[] bytes, int start) {
