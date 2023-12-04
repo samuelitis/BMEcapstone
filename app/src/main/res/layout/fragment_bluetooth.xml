@@ -51,7 +51,7 @@
                             android:id="@+id/device_name_value_1"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="6축 자이로센서" />
+                            android:text="손목 (좌측)" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -180,7 +180,7 @@
                             android:id="@+id/device_name_value_2"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="6축 자이로센서" />
+                            android:text="손목 (우측)" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -309,7 +309,7 @@
                             android:id="@+id/device_name_value_3"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="6축 자이로센서" />
+                            android:text="팔 (좌측)" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -438,7 +438,7 @@
                             android:id="@+id/device_name_value_4"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="6축 자이로센서" />
+                            android:text="팔 (우측)" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -567,7 +567,7 @@
                             android:id="@+id/device_name_value_5"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="6축 자이로센서" />
+                            android:text="발목 (좌측)" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -696,7 +696,7 @@
                             android:id="@+id/device_name_value_6"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="6축 자이로센서" />
+                            android:text="발목 (우측)" />
                     </LinearLayout>
 
                     <LinearLayout

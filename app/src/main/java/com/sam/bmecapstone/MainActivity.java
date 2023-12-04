@@ -24,6 +24,7 @@ import android.bluetooth.le.ScanResult;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -32,10 +33,25 @@ import android.widget.Toast;
 import android.Manifest;
 
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -53,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int PERMISSION_REQUEST_CODE = 1002;
     private static final int REQUEST_ENABLE_BT = 992;
+    private int CamState = 0;
 
 
     @Override
@@ -114,16 +131,44 @@ public class MainActivity extends AppCompatActivity {
 
         // 초기 프래그먼트 설정
         getSupportFragmentManager().beginTransaction()
-                .replace(R.id.frame, fragmentBluetooth)
+                .replace(R.id.frame, fragmentCam)
                 .commit();
 
         btnBluetooth = findViewById(R.id.btn_bluetooth);
         btnCam = findViewById(R.id.btn_CAM);
         btnInfo = findViewById(R.id.btn_info);
 
-        btnBluetooth.setOnClickListener(view -> switchFragment(fragmentBluetooth));
-        btnCam.setOnClickListener(view -> switchFragment(fragmentCam));
-        btnInfo.setOnClickListener(view -> switchFragment(fragmentInfo));
+        btnBluetooth.setOnClickListener(view -> {
+            switchFragment(fragmentBluetooth);
+            btnCam.setText("측정");
+            CamState = 0;
+        });
+
+        btnInfo.setOnClickListener(view -> {
+            switchFragment(fragmentInfo);
+            btnCam.setText("측정");
+            CamState = 0;
+        });
+
+        btnCam.setOnClickListener(view -> {
+            if (CamState == 0) {
+                // CamState가 false일 때
+                switchFragment(fragmentCam);
+                btnCam.setText("측정 시작");
+                CamState = 1;
+            } else if (CamState == 1) {
+                // 측정 시작!!
+                CamState = 2;
+                startPeriodicDataSend();
+                btnCam.setText("측정 종료");
+            } else if (CamState == 2) {
+                // 측정 종료!!
+                CamState = 1;
+                stopPeriodicDataSend();
+                btnCam.setText("측정 시작");
+
+            }
+        });
     }
 
     private void switchFragment(Fragment fragment) {
@@ -175,6 +220,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
     public boolean allDevicesConnected() {
         // 모든 기기가 연결되었는지 확인하기 위해 bluetoothDevices의 크기가 6인지 확인
         if (bluetoothDevices.size() != 6) {
@@ -190,6 +236,7 @@ public class MainActivity extends AppCompatActivity {
 
         return true;  // 모든 조건이 만족되면 true 반환
     }
+
     // 블루투스 LE 검색
     public void discoverDevices(Activity activity) {
         try {
@@ -267,10 +314,10 @@ public class MainActivity extends AppCompatActivity {
         // BLE 디바이스 연결을 위한 콜백
         gattCallback = new BluetoothGattCallback() {
             @Override
-            public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-                if (status == BluetoothGatt.GATT_SUCCESS) {
-                    if (newState == BluetoothProfile.STATE_CONNECTED) {
-                        Log.i("BLEConnect", "Connected to GATT server.");
+            public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) { // 블루투스 연결 상태가 바뀌었다면
+                if (status == BluetoothGatt.GATT_SUCCESS) { // 현재 상태가 GATT 서비스와 연결이 되어있다면
+                    if (newState == BluetoothProfile.STATE_CONNECTED) { // 이 기기, gatt의 새로운 상태가 연결되어있다면
+                        Log.i("BLEConnect", "Connected to GATT server.");  // 연결 준비가 되었다 말해줌(GATT와 연결된것임)
                         // 연결 성공 후에는 서비스를 발견하도록 요청할 수 있습니다.
                         if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                             return;
@@ -290,9 +337,10 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     // 연결 실패
                     Log.e("BLEConnect", "Connection failed with status: " + status);
-                    // 추가로 필요한 오류 처리를 여기에 추가하십시오.
+                    // 추가로 필요한 오류 처리
                 }
             }
+
             // 연결 후 서비스 발견시
             @Override
             public void onServicesDiscovered(BluetoothGatt gatt, int status) {
@@ -346,19 +394,41 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
                 byte[] data = characteristic.getValue();
-                char dataType = (char) data[0]; // 'A' 또는 'G'
-                SensorDataStore.SensorData sensorData;
-                float x = bytesToFloat(data, 1);
-                float y = bytesToFloat(data, 5);
-                float z = bytesToFloat(data, 9);
+                // 데이터 파싱 로직 (예시)
+                if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    // TODO: Consider calling
+                    //    ActivityCompat#requestPermissions
+                    // here to request the missing permissions, and then overriding
+                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                    //                                          int[] grantResults)
+                    // to handle the case where the user grants the permission. See the documentation
+                    // for ActivityCompat#requestPermissions for more details.
+                    return;
+                }
+                String deviceName = gatt.getDevice().getName();
+                float ax = bytesToFloat(data, 1); // X축 데이터 파싱
+                float ay = bytesToFloat(data, 5); // Y축 데이터 파싱
+                float az = bytesToFloat(data, 9); // Z축 데이터 파싱
 
-                int dataTypeValue = (dataType == 'A') ? 1 : 0;
-                sensorData = new SensorDataStore.SensorData(dataTypeValue, x, y, z);
+                FragmentCam fragmentCam = null;
 
-                SensorDataStore.getInstance().addData(sensorData);
-                // 이제 cam activity에서 데이터 접근해서 확인하는 부분 만들면될듯
-                // 서버로 넘겨주는 거까지 테스트 해볼것!
-                // 이후 카메라 까지 묶어서 json으로 넘겨주기
+                // 모든 Fragment 중에서 FragmentCam 인스턴스 찾기
+                List<Fragment> fragments = getSupportFragmentManager().getFragments();
+                for (Fragment fragment : fragments) {
+                    if (fragment instanceof FragmentCam) {
+                        fragmentCam = (FragmentCam) fragment;
+                        break;
+                    }
+                }
+
+                // FragmentCam 인스턴스가 존재하면 해당 메소드 호출
+                if (fragmentCam != null) {
+
+                    fragmentCam.updateChart(deviceName, (char) data[0], ax, ay, az);
+                }
+
+                // SensorData 객체 생성 및 추가
+                SensorDataStore.getInstance().addData(new SensorDataStore.SensorData(deviceName, ax, ay, az));
             }
 
             public float bytesToFloat(byte[] bytes, int start) {
@@ -378,11 +448,11 @@ public class MainActivity extends AppCompatActivity {
     public static class SensorDataStore {
 
         private static SensorDataStore instance = null;
-        private final int MAX_SIZE = 1000; // 예: 최대 1000개의 데이터를 보관
-        private ArrayDeque<SensorData> queue;
+        private final int MAX_SIZE = 1000; // 최대 데이터 수
+        private Map<String, ArrayDeque<SensorData>> deviceDataMap; // 각 장치별 데이터 저장소
 
         private SensorDataStore() {
-            queue = new ArrayDeque<>();
+            deviceDataMap = new HashMap<>();
         }
 
         public static synchronized SensorDataStore getInstance() {
@@ -393,39 +463,55 @@ public class MainActivity extends AppCompatActivity {
         }
 
         public synchronized void addData(SensorData data) {
-            if(queue.size() >= MAX_SIZE) {
-                queue.poll(); // 최대 크기를 초과하면 가장 오래된 데이터 제거
+            String deviceName = data.getDeviceName();
+            deviceDataMap.putIfAbsent(deviceName, new ArrayDeque<>());
+            ArrayDeque<SensorData> queue = deviceDataMap.get(deviceName);
+            if (queue.size() >= MAX_SIZE) {
+                queue.poll(); // 최대 크기 초과시 가장 오래된 데이터 제거
             }
             queue.add(data);
+            // Log.d("SensorDataStore", "Data added for device " + deviceName + ": " + data.toString()); // 데이터 추가 로그
         }
 
-        public synchronized SensorData pollData() {
-            return queue.poll();
+        public synchronized List<SensorData> getAllDataForDeviceName(String deviceName) {
+            return new ArrayList<>(deviceDataMap.getOrDefault(deviceName, new ArrayDeque<>()));
         }
 
-        public synchronized List<SensorData> getAllData() {
-            List<SensorData> dataList = new ArrayList<>(queue);
-            queue.clear();
-            return dataList;
+        public synchronized int dataSize(String deviceName) {
+            return deviceDataMap.getOrDefault(deviceName, new ArrayDeque<>()).size();
         }
 
-        public synchronized int dataSize() {
-            return queue.size();
+        public synchronized void clearDataForDevice(String deviceName) {
+            if (deviceDataMap.containsKey(deviceName)) {
+                deviceDataMap.get(deviceName).clear();
+            }
         }
-
 
         public static class SensorData {
-            private final boolean isAcceleration;
-            public float ax, ay, az, gx, gy, gz;
+            private boolean isAcceleration; // 가속도 데이터 여부
+            private String deviceName; // 장치 식별자
+            public float ax, ay, az; // 가속도 데이터
 
-            public SensorData(int dataType, float ax, float ay, float az) {
-                this.isAcceleration = (dataType == 1);
+            public SensorData(String deviceName, float ax, float ay, float az) {
+                this.isAcceleration = true; // 가속도 데이터임을 가정
                 this.ax = ax;
                 this.ay = ay;
                 this.az = az;
-                this.gx = gx;
-                this.gy = gy;
-                this.gz = gz;
+                this.deviceName = deviceName;
+            }
+
+            @Override
+            public String toString() {
+                return "SensorData{" +
+                        "deviceName='" + deviceName + '\'' +
+                        ", ax=" + ax +
+                        ", ay=" + ay +
+                        ", az=" + az +
+                        '}';
+            }
+
+            public String getDeviceName() {
+                return deviceName;
             }
         }
     }
@@ -434,5 +520,101 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+    public void sendToServer(JSONObject sensorData) {
+        OkHttpClient client = new OkHttpClient();
+        MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+
+        RequestBody body = RequestBody.create(JSON, sensorData.toString());
+        Request request = new Request.Builder()
+                .url("http://192.168.34.132:5055/api/upload")
+                .post(body)
+                .build();
+
+        // 서버로 데이터를 비동기적으로 전송 (메인 스레드에서 네트워크 작업을 실행하지 않도록)
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                e.printStackTrace();
+                Log.e("BLEServer", "onFailure: " + e.getMessage()); // 오류 메시지 로그 출력
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                if (!response.isSuccessful()) {
+                    Log.e("BLEServer", "Unexpected code " + response);
+                } else {
+                    Log.i("BLEServer", "Data sent successfully: " + response.body().string());
+                }
+            }
+        });
+    }
+    // 주기적으로 데이터를 서버로 전송
+    private void sendDataPeriodically() {
+        JSONObject allSensorData = new JSONObject();
+
+        try {
+            for (int i = 1; i <= 6; i++) {
+                String deviceName = "BCAP " + i;
+                List<SensorDataStore.SensorData> dataList = SensorDataStore.getInstance().getAllDataForDeviceName(deviceName);
+//                Log.d("BLEServer", deviceName + ": " + dataList.toString()); // 데이터 로그 출력
+
+                if (!dataList.isEmpty()) {
+                    JSONArray sensorDataJson = sensorDataToJsonArray(dataList);
+                    allSensorData.put(deviceName, sensorDataJson);  // JSON 객체에 추가
+
+                    // 전송한 데이터 초기화
+                    SensorDataStore.getInstance().clearDataForDevice(deviceName);
+                } else {
+                    // Log.d("BLEServer", "Empty data for device " + deviceName);
+                }
+            }
+
+            if (allSensorData.length() > 0) {
+                sendToServer(allSensorData);  // 서버로 전송
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+            Log.e("BLEServer", "Error in sendDataPeriodically: " + e.toString());
+        }
+    }
+    public JSONArray sensorDataToJsonArray(List<SensorDataStore.SensorData> dataList) {
+        JSONArray jsonArray = new JSONArray();
+
+        for (SensorDataStore.SensorData data : dataList) {
+            JSONObject jsonObject = new JSONObject();
+            try {
+                jsonObject.put("deviceName", data.getDeviceName());
+                jsonObject.put("ax", data.ax);
+                jsonObject.put("ay", data.ay);
+                jsonObject.put("az", data.az);
+                // 필요한 다른 센서 데이터도 추가
+                jsonArray.put(jsonObject);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+        return jsonArray;
+    }
+    private Handler handler = new Handler();
+    private Runnable sendDataRunnable = new Runnable() {
+        @Override
+        public void run() {
+            sendDataPeriodically();
+            handler.postDelayed(this, 1000); // 1초 후에 다시 실행
+//            Log.w("BLEServer", "Send Handler");
+        }
+    };
+
+    // 측정 시작 시 호출
+    public void startPeriodicDataSend() {
+        handler.post(sendDataRunnable);
+        Log.w("BLEServer", "Starting Periodic Data Send ");
+    }
+
+    // 측정 중지 시 호출
+    public void stopPeriodicDataSend() {
+        handler.removeCallbacks(sendDataRunnable);
+        Log.w("BLEServer", "Stop Periodic Data Send ");
+    }
 
 }

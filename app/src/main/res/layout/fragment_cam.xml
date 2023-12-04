@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -13,7 +14,8 @@
             android:scaleType="centerCrop"
             android:adjustViewBounds="true"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:layout_weight="1" />
 
         <View
             android:layout_width="match_parent"
@@ -26,11 +28,80 @@
             android:id="@+id/txt_terminal"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight=".15"
+            android:layout_weight="0.5"
             android:scrollbars="vertical"
             android:scrollbarFadeDuration="0"
             android:scrollbarAlwaysDrawVerticalTrack="true"
             android:text="&lt;안내 메세지&gt;"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="2"
+            android:orientation="vertical"> <!-- 외부 LinearLayout을 세로 방향으로 설정 -->
+
+            <!-- 첫 번째 행 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="horizontal"> <!-- 각 행을 가로 방향으로 설정 -->
+
+                <com.androidplot.xy.XYPlot
+                    android:id="@+id/chart1"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1" />
+
+                <com.androidplot.xy.XYPlot
+                    android:id="@+id/chart2"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
+            <!-- 두 번째 행 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="horizontal">
+
+                <!-- 차트 3과 4의 ID 및 기타 속성 추가 -->
+                <com.androidplot.xy.XYPlot
+                    android:id="@+id/chart3"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1" />
+
+                <com.androidplot.xy.XYPlot
+                    android:id="@+id/chart4"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
+            <!-- 세 번째 행 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="horizontal">
+
+                <!-- 차트 5와 6의 ID 및 기타 속성 추가 -->
+                <com.androidplot.xy.XYPlot
+                    android:id="@+id/chart5"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1" />
+
+                <com.androidplot.xy.XYPlot
+                    android:id="@+id/chart6"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1" />
+            </LinearLayout>
+        </LinearLayout>
 
     </LinearLayout>
 

@@ -3,6 +3,7 @@ package com.sam.bmecapstone;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -35,10 +36,18 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
+import com.androidplot.xy.BoundaryMode;
+import com.androidplot.xy.LineAndPointFormatter;
+import com.androidplot.xy.SimpleXYSeries;
+import com.androidplot.xy.XYPlot;
+
 import java.net.CookieManager;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
 
 public class FragmentCam extends Fragment {
     private static final int REQUEST_IMAGE_CAPTURE = 672;
@@ -52,7 +61,23 @@ public class FragmentCam extends Fragment {
     private HandlerThread backgroundThread;
     TextureView textureView;
 
+    private XYPlot plot1, plot2, plot3, plot4, plot5, plot6;
+    private SimpleXYSeries series1, series2, series3, series4, series5, series6;
+    private final int MAX_DATA_POINTS = 30;
+    private Queue<Float> dataQueue1 = new LinkedList<>();
+    private Queue<Float> dataQueue2 = new LinkedList<>();
+    private Queue<Float> dataQueue3 = new LinkedList<>();
+    private Queue<Float> dataQueue4 = new LinkedList<>();
+    private Queue<Float> dataQueue5 = new LinkedList<>();
+    private Queue<Float> dataQueue6 = new LinkedList<>();
 
+
+    // 외부에서 호출할 수 있는 공개 메서드
+    public void appendText(String text) {
+        if (txtTerminal != null) {
+            txtTerminal.append(text);
+        }
+    }
     private void startBackgroundThread() {
         backgroundThread = new HandlerThread("Camera Background");
         backgroundThread.start();
@@ -73,7 +98,114 @@ public class FragmentCam extends Fragment {
     public FragmentCam(){
 
     }
+    // 차트 업데이트 메서드
+    private int dataIndex = 0;
+    public void updateChart(String deviceName, char dtype, float ax, float ay, float az) {
+        getActivity().runOnUiThread(() -> {
+            // 예: 첫 번째 장치의 X축 데이터를 차트1에 표시
+            if (deviceName.equals("BCAP 1")) {
+                if (dtype=='A'){
+                    dataQueue1.add(ax);
+                    dataQueue1.add(ay);
+                    dataQueue1.add(az);
+                } else if (dtype=='G') {
+                }
+                if (dataQueue1.size() > MAX_DATA_POINTS * 3) {
+                    // 큐에 있는 데이터 개수가 최대 데이터 개수의 3배를 초과하면
+                    // 초과한 데이터를 큐에서 제거합니다.
+                    for (int i = 0; i < dataQueue1.size() - MAX_DATA_POINTS * 3; i++) {
+                        dataQueue1.poll();
+                    }
+                }
+                series1.setModel((List<? extends Number>) dataQueue1, SimpleXYSeries.ArrayFormat.Y_VALS_ONLY);
+                plot1.redraw();
+            } else if (deviceName.equals("BCAP 2")) {
+                if (dtype=='A'){
+                    dataQueue2.add(ax);
+                    dataQueue2.add(ay);
+                    dataQueue2.add(az);
+                } else if (dtype=='G') {
+                }
+                if (dataQueue2.size() > MAX_DATA_POINTS * 3) {
+                    // 큐에 있는 데이터 개수가 최대 데이터 개수의 3배를 초과하면
+                    // 초과한 데이터를 큐에서 제거합니다.
+                    for (int i = 0; i < dataQueue2.size() - MAX_DATA_POINTS * 3; i++) {
+                        dataQueue2.poll();
+                    }
+                }
+                series2.setModel((List<? extends Number>) dataQueue2, SimpleXYSeries.ArrayFormat.Y_VALS_ONLY);
+                plot2.redraw();
+            } else if (deviceName.equals("BCAP 3")) {
+                if (dtype=='A'){
+                    dataQueue3.add(ax);
+                    dataQueue3.add(ay);
+                    dataQueue3.add(az);
+                } else if (dtype=='G') {
+                }
+                if (dataQueue3.size() > MAX_DATA_POINTS * 3) {
+                    // 큐에 있는 데이터 개수가 최대 데이터 개수의 3배를 초과하면
+                    // 초과한 데이터를 큐에서 제거합니다.
+                    for (int i = 0; i < dataQueue3.size() - MAX_DATA_POINTS * 3; i++) {
+                        dataQueue3.poll();
+                    }
+                }
+                series3.setModel((List<? extends Number>) dataQueue3, SimpleXYSeries.ArrayFormat.Y_VALS_ONLY);
+                plot3.redraw();
+            } else if (deviceName.equals("BCAP 4")) {
 
+                if (dtype=='A'){
+                    dataQueue4.add(ax);
+                    dataQueue4.add(ay);
+                    dataQueue4.add(az);
+                } else if (dtype=='G') {
+                }
+                if (dataQueue4.size() > MAX_DATA_POINTS * 3) {
+                    // 큐에 있는 데이터 개수가 최대 데이터 개수의 3배를 초과하면
+                    // 초과한 데이터를 큐에서 제거합니다.
+                    for (int i = 0; i < dataQueue4.size() - MAX_DATA_POINTS * 3; i++) {
+                        dataQueue4.poll();
+                    }
+                }
+                series4.setModel((List<? extends Number>) dataQueue4, SimpleXYSeries.ArrayFormat.Y_VALS_ONLY);
+                plot4.redraw();
+            } else if (deviceName.equals("BCAP 5")) {
+
+                if (dtype=='A'){
+                    dataQueue5.add(ax);
+                    dataQueue5.add(ay);
+                    dataQueue5.add(az);
+                } else if (dtype=='G') {
+                }
+                if (dataQueue5.size() > MAX_DATA_POINTS * 3) {
+                    // 큐에 있는 데이터 개수가 최대 데이터 개수의 3배를 초과하면
+                    // 초과한 데이터를 큐에서 제거합니다.
+                    for (int i = 0; i < dataQueue5.size() - MAX_DATA_POINTS * 3; i++) {
+                        dataQueue5.poll();
+                    }
+                }
+                series5.setModel((List<? extends Number>) dataQueue5, SimpleXYSeries.ArrayFormat.Y_VALS_ONLY);
+                plot5.redraw();
+            } else if (deviceName.equals("BCAP 6")) {
+
+                if (dtype=='A'){
+                    dataQueue6.add(ax);
+                    dataQueue6.add(ay);
+                    dataQueue6.add(az);
+                } else if (dtype=='G') {
+                }
+                if (dataQueue6.size() > MAX_DATA_POINTS * 3) {
+                    // 큐에 있는 데이터 개수가 최대 데이터 개수의 3배를 초과하면
+                    // 초과한 데이터를 큐에서 제거합니다.
+                    for (int i = 0; i < dataQueue6.size() - MAX_DATA_POINTS * 3; i++) {
+                        dataQueue6.poll();
+                    }
+                }
+                series6.setModel((List<? extends Number>) dataQueue6, SimpleXYSeries.ArrayFormat.Y_VALS_ONLY);
+                plot6.redraw();
+            }
+            // ... 다른 장치 및 차트에 대한 로직 ...
+        });
+    }
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -82,6 +214,27 @@ public class FragmentCam extends Fragment {
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        // 차트 초기화
+        plot1 = view.findViewById(R.id.chart1);
+        plot2 = view.findViewById(R.id.chart2);
+        plot3 = view.findViewById(R.id.chart3);
+        plot4 = view.findViewById(R.id.chart4);
+        plot5 = view.findViewById(R.id.chart5);
+        plot6 = view.findViewById(R.id.chart6);
+
+        series1 = new SimpleXYSeries("Left hand");
+        series2 = new SimpleXYSeries("Right hand");
+        series3 = new SimpleXYSeries("Left Arm");
+        series4 = new SimpleXYSeries("Right Arm");
+        series5 = new SimpleXYSeries("Left foot");
+        series6 = new SimpleXYSeries("Right foot");
+
+        plot1.addSeries(series1, new LineAndPointFormatter(Color.BLUE, null, null, null));
+        plot2.addSeries(series2, new LineAndPointFormatter(Color.BLUE, null, null, null));
+        plot3.addSeries(series3, new LineAndPointFormatter(Color.BLUE, null, null, null));
+        plot4.addSeries(series4, new LineAndPointFormatter(Color.BLUE, null, null, null));
+        plot5.addSeries(series5, new LineAndPointFormatter(Color.BLUE, null, null, null));
+        plot6.addSeries(series6, new LineAndPointFormatter(Color.BLUE, null, null, null));
 
         textureView = getView().findViewById(R.id.tv_result);
         txtTerminal = getView().findViewById(R.id.txt_terminal);
@@ -98,34 +251,20 @@ public class FragmentCam extends Fragment {
             txtTerminal.setMovementMethod(new ScrollingMovementMethod());
             txtTerminal.append("\n" + "[안내] 측정가능 여부를 확인하고 있습니다..");
 
-            // 로그인 여부 확인 (임시로 true로 해둠)
-            if (true) {
-                txtTerminal.append("\n" + "[안내] 로그인이 되어 있습니다.");
-                // 진단 받은 치료솔루션이 있는가? (임시로 true로 해둠)
-                if (true) {
-                    txtTerminal.append("\n" + "[안내] 치료 가능한 솔루션을 찾았습니다.");
-                    // 어떤 치료인지 알려줄 것!
-
-                    // Bluetooth 연결 여부 확인
-                    Boolean BLE_Connect = ((MainActivity) getActivity()).allDevicesConnected();
-                    BLE_Connect = true; // 삭제해야함
-                    if (BLE_Connect) { // 예: MainActivity에 allDevicesConnected() 메서드가 블루투스 연결을 확인합니다.
-                        txtTerminal.append("\n" + "[안내] 6개의 블루투스 기기가 연결되어있습니다.");
-                        if (checkCameraPermission()) {
-                            txtTerminal.append("\n" + "[안내] 카메라 권한이 확인되었습니다.");
-                            // 다 완료시 통신 테스트 진행
-                            // MainActivity에 있는 btn_CAM 버튼을 누른다면 진행!
-                            // 해당 프래그먼트에서 이 조건문들이 만족할때만 버튼클릭시 카메라 작동부가 작동해야함
-                        } else {
-                            txtTerminal.append("\n" + "[안내] 카메라 권한이 필요합니다.");
-                        }
-                    }
+            // Bluetooth 연결 여부 확인
+            txtTerminal.append("\nTest");
+            Boolean BLE_Connect = ((MainActivity) getActivity()).allDevicesConnected();
+            txtTerminal.append("\n" + BLE_Connect);
+            if (BLE_Connect) { // 예: MainActivity에 allDevicesConnected() 메서드가 블루투스 연결을 확인합니다.
+                txtTerminal.append("\n" + "[안내] 6개의 블루투스 기기가 연결되어있습니다.");
+                if (checkCameraPermission()) {
+                    txtTerminal.append("\n" + "[안내] 카메라 권한이 확인되었습니다.");
+                    // 다 완료시 통신 테스트 진행
+                    // MainActivity에 있는 btn_CAM 버튼을 누른다면 진행!
+                    // 해당 프래그먼트에서 이 조건문들이 만족할때만 버튼클릭시 카메라 작동부가 작동해야함
                 } else {
-                    txtTerminal.append("\n" + "[안내] 진단받은 치료 솔루션이 없습니다.");
+                    txtTerminal.append("\n" + "[안내] 카메라 권한이 필요합니다.");
                 }
-            } else {
-                txtTerminal.append("\n" + "[안내] 로그인 여부 확인에 실패하였습니다.");
-                txtTerminal.append("\n" + "[안내] 로그인을 진행한 뒤 시도해주세요");
             }
         }
         textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
@@ -149,6 +288,7 @@ public class FragmentCam extends Fragment {
                 // Handle updates to the SurfaceTexture if needed.
             }
         });
+
     }
 
     private boolean checkCameraPermission() {
@@ -311,6 +451,7 @@ public class FragmentCam extends Fragment {
     public void onResume() {
         super.onResume();
         startBackgroundThread();
+
         // 다시 들어왔을때 치료를 계속 진행할 것인지
         // 뷰를 초기화하고 연결 다시하라고할것인지?
     }
@@ -320,5 +461,4 @@ public class FragmentCam extends Fragment {
         stopBackgroundThread();
         super.onPause();
     }
-
 }
