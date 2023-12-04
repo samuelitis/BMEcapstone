@@ -1,13 +1,6 @@
 package com.sam.bmecapstone;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentTransaction;
-
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
@@ -23,27 +16,40 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.Manifest;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -54,6 +60,18 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity {
+    public String encodeImageToBase64(Bitmap bitmap) {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream);
+        byte[] byteArray = byteArrayOutputStream.toByteArray();
+        return Base64.encodeToString(byteArray, Base64.DEFAULT);
+    }
+
+    public Bitmap decodeBase64ToImage(String base64String) {
+        byte[] decodedString = Base64.decode(base64String, Base64.DEFAULT);
+        Bitmap decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+        return decodedByte;
+    }
 
     Button btnBluetooth, btnCam, btnInfo;
     List<BluetoothDevice> discoveredDevices;
@@ -70,6 +88,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int PERMISSION_REQUEST_CODE = 1002;
     private static final int REQUEST_ENABLE_BT = 992;
     private int CamState = 0;
+
+
 
 
     @Override
@@ -314,31 +334,35 @@ public class MainActivity extends AppCompatActivity {
         // BLE 디바이스 연결을 위한 콜백
         gattCallback = new BluetoothGattCallback() {
             @Override
-            public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) { // 블루투스 연결 상태가 바뀌었다면
-                if (status == BluetoothGatt.GATT_SUCCESS) { // 현재 상태가 GATT 서비스와 연결이 되어있다면
-                    if (newState == BluetoothProfile.STATE_CONNECTED) { // 이 기기, gatt의 새로운 상태가 연결되어있다면
-                        Log.i("BLEConnect", "Connected to GATT server.");  // 연결 준비가 되었다 말해줌(GATT와 연결된것임)
-                        // 연결 성공 후에는 서비스를 발견하도록 요청할 수 있습니다.
-                        if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                            return;
-                        }
-                        gatt.discoverServices();
-                    } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                        Log.i("BLEConnect", "Disconnected from GATT server.");
-                        // 연결이 끊긴 기기의 위치에 null 설정
-                        for (int i = 0; i < bluetoothDevices.size(); i++) {
-                            if (bluetoothDevices.get(i).equals(gatt.getDevice())) {
-                                bluetoothDevices.set(i, null);
-                                break;
+            public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+                activity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (status == BluetoothGatt.GATT_SUCCESS) {
+                            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                                Toast.makeText(activity, "블루투스에 연결되었습니다.", Toast.LENGTH_SHORT).show();
+                                Log.i("BLEConnect", "Connected to GATT server.");
+                                if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                                    return;
+                                }
+                                gatt.discoverServices();
+                            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                                Toast.makeText(activity, "블루투스 연결이 해제되었습니다.", Toast.LENGTH_SHORT).show();
+                                Log.i("BLEConnect", "Disconnected from GATT server.");
+                                for (int i = 0; i < bluetoothDevices.size(); i++) {
+                                    if (bluetoothDevices.get(i).equals(gatt.getDevice())) {
+                                        bluetoothDevices.set(i, null);
+                                        break;
+                                    }
+                                }
+                                gatt.close();
                             }
+                        } else {
+                            Toast.makeText(activity, "블루투스 연결 실패: 상태 코드 " + status, Toast.LENGTH_SHORT).show();
+                            Log.e("BLEConnect", "Connection failed with status: " + status);
                         }
-                        gatt.close();  // BluetoothGatt 리소스를 해제
                     }
-                } else {
-                    // 연결 실패
-                    Log.e("BLEConnect", "Connection failed with status: " + status);
-                    // 추가로 필요한 오류 처리
-                }
+                });
             }
 
             // 연결 후 서비스 발견시
@@ -394,21 +418,16 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
                 byte[] data = characteristic.getValue();
-                // 데이터 파싱 로직 (예시)
                 if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    // TODO: Consider calling
-                    //    ActivityCompat#requestPermissions
-                    // here to request the missing permissions, and then overriding
-                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                    //                                          int[] grantResults)
-                    // to handle the case where the user grants the permission. See the documentation
-                    // for ActivityCompat#requestPermissions for more details.
+                    // 권한 확인 로직
                     return;
                 }
                 String deviceName = gatt.getDevice().getName();
-                float ax = bytesToFloat(data, 1); // X축 데이터 파싱
-                float ay = bytesToFloat(data, 5); // Y축 데이터 파싱
-                float az = bytesToFloat(data, 9); // Z축 데이터 파싱
+                char dataType = (char) data[0]; // 데이터 타입 확인 ('A' 또는 'G')
+
+                float x = bytesToFloat(data, 1); // X축 데이터 파싱
+                float y = bytesToFloat(data, 5); // Y축 데이터 파싱
+                float z = bytesToFloat(data, 9); // Z축 데이터 파싱
 
                 FragmentCam fragmentCam = null;
 
@@ -423,13 +442,14 @@ public class MainActivity extends AppCompatActivity {
 
                 // FragmentCam 인스턴스가 존재하면 해당 메소드 호출
                 if (fragmentCam != null) {
-
-                    fragmentCam.updateChart(deviceName, (char) data[0], ax, ay, az);
+                    fragmentCam.updateChart(deviceName, dataType, x, y, z);
                 }
 
                 // SensorData 객체 생성 및 추가
-                SensorDataStore.getInstance().addData(new SensorDataStore.SensorData(deviceName, ax, ay, az));
+                String sensorDataType = (dataType == 'A') ? "acceleration" : "gyroscope";
+                SensorDataStore.getInstance().addData(new SensorDataStore.SensorData(deviceName, sensorDataType, x, y, z));
             }
+
 
             public float bytesToFloat(byte[] bytes, int start) {
                 int asInt = (bytes[start] & 0xFF)
@@ -454,6 +474,7 @@ public class MainActivity extends AppCompatActivity {
         private SensorDataStore() {
             deviceDataMap = new HashMap<>();
         }
+
 
         public static synchronized SensorDataStore getInstance() {
             if (instance == null) {
@@ -488,25 +509,36 @@ public class MainActivity extends AppCompatActivity {
         }
 
         public static class SensorData {
-            private boolean isAcceleration; // 가속도 데이터 여부
+            private String dataType; // 데이터 유형 (가속도 "acceleration" 또는 자이로스코프 "gyroscope")
             private String deviceName; // 장치 식별자
             public float ax, ay, az; // 가속도 데이터
+            public float gx, gy, gz; // 자이로스코프 데이터
 
-            public SensorData(String deviceName, float ax, float ay, float az) {
-                this.isAcceleration = true; // 가속도 데이터임을 가정
-                this.ax = ax;
-                this.ay = ay;
-                this.az = az;
+            public SensorData(String deviceName, String dataType, float x, float y, float z) {
                 this.deviceName = deviceName;
+                this.dataType = dataType;
+                if (dataType.equals("acceleration")) {
+                    this.ax = x;
+                    this.ay = y;
+                    this.az = z;
+                } else if (dataType.equals("gyroscope")) {
+                    this.gx = x;
+                    this.gy = y;
+                    this.gz = z;
+                }
             }
 
             @Override
             public String toString() {
                 return "SensorData{" +
-                        "deviceName='" + deviceName + '\'' +
+                        "dataType='" + dataType + '\'' +
+                        ", deviceName='" + deviceName + '\'' +
                         ", ax=" + ax +
                         ", ay=" + ay +
                         ", az=" + az +
+                        ", gx=" + gx +
+                        ", gy=" + gy +
+                        ", gz=" + gz +
                         '}';
             }
 
@@ -520,17 +552,45 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
-    public void sendToServer(JSONObject sensorData) {
+    public void sendToServer(JSONObject data) {
         OkHttpClient client = new OkHttpClient();
         MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
-        RequestBody body = RequestBody.create(JSON, sensorData.toString());
+        FragmentCam fragmentCam = findFragmentCam();
+        Bitmap cameraImage = null;
+        if (fragmentCam != null) {
+            cameraImage = fragmentCam.getCurrentPreviewBitmap();
+        }
+        // 이미지를 Base64 인코딩 문자열로 변환
+        String encodedImage = "";
+        if (cameraImage != null) {
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            cameraImage.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream);
+            byte[] byteArray = byteArrayOutputStream.toByteArray();
+            encodedImage = Base64.encodeToString(byteArray, Base64.DEFAULT);
+        }
+
+        // 현재 시간을 ISO 8601 형식으로 추가
+        String currentTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(new Date());
+
+        try {
+            // 기존 JSON 객체에 timestamp 추가
+            data.put("timestamp", currentTime);
+            data.put("imageData", encodedImage); // 이미지 데이터 추가
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        String jsonData = data.toString();
+        Log.d("BLEServer", "Sending data: " + jsonData); // JSON 데이터 로그 출력
+
+        RequestBody body = RequestBody.create(JSON, jsonData);
         Request request = new Request.Builder()
-                .url("http://192.168.34.132:5055/api/upload")
+                .url("http://192.168.7.132:5055/api/upload")
                 .post(body)
                 .build();
 
-        // 서버로 데이터를 비동기적으로 전송 (메인 스레드에서 네트워크 작업을 실행하지 않도록)
+        // 서버로 데이터를 비동기적으로 전송
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
@@ -540,37 +600,63 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onResponse(Call call, Response response) throws IOException {
-                if (!response.isSuccessful()) {
-                    Log.e("BLEServer", "Unexpected code " + response);
+                if (response.isSuccessful()) {
+                    try {
+                        String responseData = response.body().string();
+                        JSONObject jsonResponse = new JSONObject(responseData);
+
+                        // 서버 응답에서 키포인트 정보 추출
+                        JSONArray keypointsJson = jsonResponse.optJSONArray("keypoints");
+                        if (keypointsJson != null) {
+                            ArrayList<FragmentCam.KeyPoint> keypoints = new ArrayList<>();
+                            for (int i = 0; i < keypointsJson.length(); i++) {
+                                JSONObject keypointJson = keypointsJson.getJSONObject(i);
+                                int id = keypointJson.getInt("id");
+                                float x = (float) keypointJson.getDouble("x");
+                                float y = (float) keypointJson.getDouble("y");
+                                FragmentCam.KeyPoint keypoint = fragmentCam.new KeyPoint(id, x, y); // FragmentCam의 인스턴스 필요
+                                keypoints.add(keypoint);
+                            }
+
+                            // FragmentCam에 키포인트 정보 업데이트 메서드 호출
+                            FragmentCam fragmentCam = findFragmentCam();
+                            if (fragmentCam != null) {
+                                fragmentCam.updateKeypoints(keypoints);
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 } else {
-                    Log.i("BLEServer", "Data sent successfully: " + response.body().string());
+                    // 서버로부터의 오류 응답 처리
                 }
             }
         });
     }
     // 주기적으로 데이터를 서버로 전송
     private void sendDataPeriodically() {
-        JSONObject allSensorData = new JSONObject();
+        JSONArray allSensorDataArray = new JSONArray();
 
         try {
             for (int i = 1; i <= 6; i++) {
                 String deviceName = "BCAP " + i;
                 List<SensorDataStore.SensorData> dataList = SensorDataStore.getInstance().getAllDataForDeviceName(deviceName);
-//                Log.d("BLEServer", deviceName + ": " + dataList.toString()); // 데이터 로그 출력
 
                 if (!dataList.isEmpty()) {
                     JSONArray sensorDataJson = sensorDataToJsonArray(dataList);
-                    allSensorData.put(deviceName, sensorDataJson);  // JSON 객체에 추가
+                    for (int j = 0; j < sensorDataJson.length(); j++) {
+                        allSensorDataArray.put(sensorDataJson.get(j));  // 개별 센서 데이터를 전체 배열에 추가
+                    }
 
                     // 전송한 데이터 초기화
                     SensorDataStore.getInstance().clearDataForDevice(deviceName);
-                } else {
-                    // Log.d("BLEServer", "Empty data for device " + deviceName);
                 }
             }
 
-            if (allSensorData.length() > 0) {
-                sendToServer(allSensorData);  // 서버로 전송
+            if (allSensorDataArray.length() > 0) {
+                JSONObject finalDataToSend = new JSONObject();
+                finalDataToSend.put("sensorData", allSensorDataArray);
+                sendToServer(finalDataToSend);  // 수정된 데이터를 서버로 전송
             }
         } catch (JSONException e) {
             e.printStackTrace();
@@ -587,7 +673,9 @@ public class MainActivity extends AppCompatActivity {
                 jsonObject.put("ax", data.ax);
                 jsonObject.put("ay", data.ay);
                 jsonObject.put("az", data.az);
-                // 필요한 다른 센서 데이터도 추가
+                jsonObject.put("gx", data.gx); // 자이로스코프 데이터 추가
+                jsonObject.put("gy", data.gy);
+                jsonObject.put("gz", data.gz);
                 jsonArray.put(jsonObject);
             } catch (JSONException e) {
                 e.printStackTrace();
@@ -595,12 +683,13 @@ public class MainActivity extends AppCompatActivity {
         }
         return jsonArray;
     }
+
     private Handler handler = new Handler();
     private Runnable sendDataRunnable = new Runnable() {
         @Override
         public void run() {
             sendDataPeriodically();
-            handler.postDelayed(this, 1000); // 1초 후에 다시 실행
+            handler.postDelayed(this, 500); // 1초 후에 다시 실행
 //            Log.w("BLEServer", "Send Handler");
         }
     };
@@ -616,5 +705,29 @@ public class MainActivity extends AppCompatActivity {
         handler.removeCallbacks(sendDataRunnable);
         Log.w("BLEServer", "Stop Periodic Data Send ");
     }
+    private FragmentCam findFragmentCam() {
+        List<Fragment> fragments = getSupportFragmentManager().getFragments();
+        for (Fragment fragment : fragments) {
+            if (fragment instanceof FragmentCam) {
+                return (FragmentCam) fragment;
+            }
+        }
+        return null;
+    }
 
+    public class KeyPoint {
+        private int id;
+        private float x, y;
+
+        public KeyPoint(int id, float x, float y) {
+            this.id = id;
+            this.x = x;
+            this.y = y;
+        }
+
+        // Getter 메서드
+        public int getId() { return id; }
+        public float getX() { return x; }
+        public float getY() { return y; }
+    }
 }

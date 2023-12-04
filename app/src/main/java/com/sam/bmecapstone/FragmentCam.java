@@ -3,7 +3,11 @@ package com.sam.bmecapstone;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -26,6 +30,7 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -59,7 +64,10 @@ public class FragmentCam extends Fragment {
     private ImageReader imageReader;
     private Handler backgroundHandler;
     private HandlerThread backgroundThread;
-    TextureView textureView;
+    public TextureView textureView;
+    public FrameLayout frameLayout;
+    public TextureView overlayTextureView;
+    private Paint paint;
 
     private XYPlot plot1, plot2, plot3, plot4, plot5, plot6;
     private SimpleXYSeries series1, series2, series3, series4, series5, series6;
@@ -212,8 +220,19 @@ public class FragmentCam extends Fragment {
         return inflater.inflate(R.layout.fragment_cam, container, false);
     }
 
+
+    // Paint 객체 초기화 메서드
+    private void initPaint() {
+        paint = new Paint();
+        paint.setColor(Color.RED); // 키포인트 색상 설정
+        paint.setStyle(Paint.Style.FILL); // 키포인트 스타일 설정
+        paint.setStrokeWidth(10); // 선의 두께 설정
+    }
+
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        initPaint();
+
         // 차트 초기화
         plot1 = view.findViewById(R.id.chart1);
         plot2 = view.findViewById(R.id.chart2);
@@ -235,18 +254,20 @@ public class FragmentCam extends Fragment {
         plot4.addSeries(series4, new LineAndPointFormatter(Color.BLUE, null, null, null));
         plot5.addSeries(series5, new LineAndPointFormatter(Color.BLUE, null, null, null));
         plot6.addSeries(series6, new LineAndPointFormatter(Color.BLUE, null, null, null));
-
+        try {
+            textureView = getView().findViewById(R.id.tv_result);
+            overlayTextureView = getView().findViewById(R.id.tv_overlay);
+            frameLayout = getView().findViewById(R.id.frame_layout); // 여기서 문제가 발생한다면
+        } catch (Exception e) {
+            Log.e("BLE_CANVAS", "Error finding views", e); // 로그를 출력
+        }
         textureView = getView().findViewById(R.id.tv_result);
+        overlayTextureView = getView().findViewById(R.id.tv_overlay);
+        frameLayout = getView().findViewById(R.id.frame_layout); // FrameLayout의 ID를 지정하세요.
+
+
         txtTerminal = getView().findViewById(R.id.txt_terminal);
         txtTerminal.setMovementMethod(new ScrollingMovementMethod()); // 스크롤가능
-        textureView.post(new Runnable() {
-            @Override
-            public void run() {
-                int width = textureView.getWidth();
-                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(width, width);
-                textureView.setLayoutParams(params);
-            }
-        }); // 길이 높이 1:1로 고정
         if (txtTerminal != null) {
             txtTerminal.setMovementMethod(new ScrollingMovementMethod());
             txtTerminal.append("\n" + "[안내] 측정가능 여부를 확인하고 있습니다..");
@@ -460,5 +481,85 @@ public class FragmentCam extends Fragment {
     public void onPause() {
         stopBackgroundThread();
         super.onPause();
+    }
+
+    public Bitmap getCurrentPreviewBitmap() {
+        if (textureView.isAvailable()) {
+            Bitmap bitmap = textureView.getBitmap();
+            return bitmap;
+        }
+        return null;
+    }
+    public class KeyPoint {
+        private int id;
+        private float x, y;
+
+        public KeyPoint(int id, float x, float y) {
+            this.id = id;
+            this.x = x;
+            this.y = y;
+        }
+
+        // Getter 메서드
+        public int getId() { return id; }
+        public float getX() { return x; }
+        public float getY() { return y; }
+    }
+    // POSE_PAIRS를 Java 배열로 정의
+    int[][] posePairs = {
+            // 얼굴
+            {1, 2}, {1, 3}, {2, 4}, {3, 5},
+            // 상체
+            {6, 7}, {6, 8}, {7, 9}, {8, 10}, {9, 11},
+            // 하체
+            {12, 13}, {12, 14}, {13, 15}, {14, 16}, {15, 17}
+    };
+
+    public void updateKeypoints(List<KeyPoint> keypoints) {
+        overlayTextureView.setOpaque(false);
+
+        getActivity().runOnUiThread(() -> {
+            TextureView overlayTextureView = getView().findViewById(R.id.tv_overlay);
+            if (overlayTextureView.isAvailable()) {
+                final Canvas canvas = overlayTextureView.lockCanvas();
+                if (canvas == null) {
+                    Log.w("BLE_CANVAS", "Overlay Canvas is null, skipping drawing");
+                    return;
+                }
+                try {
+                    canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR); // 기존 그림 지우기
+
+                    // 키포인트에 점 그리기
+                    for (KeyPoint keypoint : keypoints) {
+                        float x = keypoint.x * canvas.getWidth();
+                        float y = keypoint.y * canvas.getHeight();
+                        canvas.drawCircle(x, y, 10, paint); // 키포인트 그리기
+                    }
+
+                    // 스켈레톤 그리기
+                    for (int[] pair : posePairs) {
+                        int partA = pair[0] - 1;
+                        int partB = pair[1] - 1;
+
+                        // 각 키포인트가 유효한지 확인
+                        if (partA < keypoints.size() && partB < keypoints.size()) {
+                            KeyPoint kpA = keypoints.get(partA);
+                            KeyPoint kpB = keypoints.get(partB);
+                            if (kpA != null && kpB != null && kpA.x != 0 && kpA.y != 0 && kpB.x != 0 && kpB.y != 0) {
+                                float x1 = kpA.x * canvas.getWidth();
+                                float y1 = kpA.y * canvas.getHeight();
+                                float x2 = kpB.x * canvas.getWidth();
+                                float y2 = kpB.y * canvas.getHeight();
+
+                                // 선을 그립니다.
+                                canvas.drawLine(x1, y1, x2, y2, paint);
+                            }
+                        }
+                    }
+                } finally {
+                    overlayTextureView.unlockCanvasAndPost(canvas);
+                }
+            }
+        });
     }
 }
